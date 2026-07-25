@@ -182,6 +182,7 @@ for($i=0; $i<count((array) $db_files); $i++){
 		}
 		$sql_statements = explode(";\n", $sql);
 		foreach($sql_statements as $sql_statement){
+			if(empty($sql_statement)) continue;
 			try{
 				$pdo->exec($sql_statement);
 			}catch(PDOException $e){
