@@ -15,15 +15,14 @@ class Session extends Model{
 	}
 
 	public static function getIP(){
-		$ip = null;
-		if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-			$ip = $_SERVER['HTTP_CLIENT_IP'];
-		} elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-			$ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
-		} else {
-			$ip = $_SERVER['REMOTE_ADDR'];
-		}
-		return $ip;
+		// Bind the session to REMOTE_ADDR only. The client-supplied
+		// HTTP_CLIENT_IP / HTTP_X_FORWARDED_FOR headers were previously trusted,
+		// but they are (a) spoofable by the client and (b) unstable behind a
+		// proxy/CDN/load-balancer, where X-Forwarded-For can change between
+		// requests and silently invalidate an otherwise-valid session. That is
+		// a live-only intermittent "not logged in" bug; REMOTE_ADDR is the one
+		// value the client cannot forge and stays stable behind a single proxy.
+		return empty($_SERVER['REMOTE_ADDR']) ? '' : $_SERVER['REMOTE_ADDR'];
 	}
 
 	public static function generateToken(){

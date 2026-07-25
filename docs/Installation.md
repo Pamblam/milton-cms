@@ -27,4 +27,4 @@ Generally, this step could look like this: `cd /var/www/ && git clone git clone 
 
 The installer is browser-based because the user you're running in the command line may have different access to the core files then the user that is running Apache, therefore, the easiest way to make sure everything is set up properly is to use the same Apache user that will serve the compiled application.
 
-To get started, simply point your browser to your app and run the commands it gives you. After file permissions are set up, it will ask you to provide some information about your app and create a user account. After each step is completed, click the "Continue Installation" button.
+To get started, simply point your browser to your app and run the commands it gives you. After file permissions are set up, it will ask you to provide some information about your app and create a user account. The first user account you create is automatically granted administrator privileges, so it can manage every other user account you add later. After each step is completed, click the "Continue Installation" button.

@@ -49,7 +49,7 @@ $username = getNewUsername($user['username']);
 if(!empty($username)) $user['username'] = $username;
 
 $password = getUpdatedPassword();
-if(!empty($password)) $user['password'] = md5($password);
+if(!empty($password)) $user['password'] = User::hashPassword($password);
 
 try{
 	$stmt = $pdo->prepare("UPDATE `users` SET `username` = ?, `password` = ?, `display_name` = ? WHERE `id` = ?;");
@@ -60,6 +60,26 @@ try{
 	exit(1);
 }
 echo "Updated user: ".$user['username']."\n";
+
+// Optionally add or remove this user from the admins table.
+$is_admin = User::userIdIsAdmin($pdo, $user['id']);
+$admin_prompt = $is_admin
+	? "This user is currently an admin. Remove admin privileges? (y/N)"
+	: "This user is not an admin. Grant admin privileges? (y/N)";
+$answer = strtolower(promptUser($admin_prompt));
+if($answer === 'y'){
+	if($is_admin){
+		if(User::adminCount($pdo) <= 1){
+			echo "Refusing to remove the last remaining admin.\n";
+		}else{
+			User::removeAdmin($pdo, $user['id']);
+			echo "Removed admin privileges from: ".$user['username']."\n";
+		}
+	}else{
+		User::addAdmin($pdo, $user['id']);
+		echo "Granted admin privileges to: ".$user['username']."\n";
+	}
+}
 
 function getNewUsername($username){
 	global $pdo;

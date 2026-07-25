@@ -1,6 +1,6 @@
 {
     "name": "milton-cms",
-    "version": "1.7.0",
+    "version": "2.0.0",
     "description": "Milton CMS is a powerful, light-weight content management system designed as a single-page application and written in PHP and ReactJS.",
     "private": true,
     "scripts": {
@@ -21,6 +21,7 @@
     },
     "homepage": "https://github.com/Pamblam/milton-cms#readme",
     "devDependencies": {
+        "terser-webpack-plugin": "^5.6.1",
         "webpack": "^5.88.2",
         "webpack-cli": "^5.1.4"
     },
@@ -42,7 +43,7 @@
         "style-loader": "^3.3.3",
         "text-clipper": "^2.2.0",
         "url-loader": "^4.1.1",
-        "uuidv4": "^6.2.13"
+        "uuidv4": "^1.0.0"
     },
     "imports": {
         "#config/server": "./config/server.json",
@@ -66,6 +67,7 @@
         "#hooks/useNavHelper": "./src/core/hooks/useNavHelper.js",
         "#index": "./src/core/index.php",
         "#installer/installer": "./src/core/installer/installer.php",
+        "#installer/installer_body": "./src/core/installer/installer_body.php",
         "#main": "./src/core/main.jsx",
         "#modules/APIRequest": "./src/core/modules/APIRequest.js",
         "#modules/FI": "./src/core/modules/FI.js",
@@ -73,10 +75,12 @@
         "#views/AllPosts": "./src/core/views/AllPosts.jsx",
         "#views/EditPost": "./src/core/views/EditPost.jsx",
         "#views/Home": "./src/core/views/Home.jsx",
+        "#views/Media": "./src/core/views/Media.jsx",
         "#views/NewPost": "./src/core/views/NewPost.jsx",
         "#views/NotFound": "./src/core/views/NotFound.jsx",
         "#views/Post": "./src/core/views/Post.jsx",
         "#views/Search": "./src/core/views/Search.jsx",
-        "#views/Settings": "./src/core/views/Settings.jsx"
+        "#views/Settings": "./src/core/views/Settings.jsx",
+        "#views/Users": "./src/core/views/Users.jsx"
     }
 }

@@ -80,7 +80,7 @@ function createUser(){
 	$display_name = getNewDisplayName($username);
 	try{
 		$stmt = $pdo->prepare("INSERT INTO `users` (`username`, `password`, `display_name`) VALUES (?, ?, ?);");
-		$stmt->execute([$username, md5($password), $display_name]);
+		$stmt->execute([$username, User::hashPassword($password), $display_name]);
 	}catch(PDOException $e){
 		echo "Error: ".$e->getMessage()."\n";
 		echo "Can't create user. Ensure PHP has proper permissions to read the database file.\n";

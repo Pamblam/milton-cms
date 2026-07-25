@@ -7,9 +7,8 @@ function fi_browser_installer($missing_perms, $db_file, $missing_tables, $post, 
 	echo "<h4>Checking Node Modules...</h4>";
 	if($missing_node_modules){
 		echo "<p>Please install node dependencies. From the command line, please run:</p>";
-		echo "<textarea id='code-textarea' readonly rows='3'>cd ".APP_ROOT.";\nnpm install;\n</textarea>";
-		echo "<button onclick='navigator.clipboard.writeText(document.getElementById(`code-textarea`).value).then(e=>{this.innerHTML=`Text copied!`;setTimeout(()=>this.innerHTML=`Copy to Clipboard`,2000)})'>Copy to Clipboard</button>";
-		echo "<button onclick='window.location = window.location.href;'>Continue Installation</button>";
+		echo fi_installer_codeblock("cd ".APP_ROOT.";\nnpm install;\n", 3);
+		echo "<button type='button' class='btn btn-primary installer-continue'>Continue Installation</button>";
 		$has_errors = true;
 		return;
 	}else{
@@ -20,11 +19,10 @@ function fi_browser_installer($missing_perms, $db_file, $missing_tables, $post, 
 	echo "<h4>Checking Permissions...</h4>";
 	if(!empty($missing_perms)){
 		echo "<p>Milton CMS requires permissions adjustments. From the command line, please run:</p>";
-		echo "<textarea id='code-textarea' readonly rows='".(count($missing_perms)+1)."'>";
-		foreach($missing_perms as $err) echo $err['solution'].";\n";
-		echo "</textarea>";
-		echo "<button onclick='navigator.clipboard.writeText(document.getElementById(`code-textarea`).value).then(e=>{this.innerHTML=`Text copied!`;setTimeout(()=>this.innerHTML=`Copy to Clipboard`,2000)})'>Copy to Clipboard</button>";
-		echo "<button onclick='window.location = window.location.href;'>Continue Installation</button>";
+		$perm_cmds = '';
+		foreach($missing_perms as $err) $perm_cmds .= $err['solution'].";\n";
+		echo fi_installer_codeblock($perm_cmds, count($missing_perms)+1);
+		echo "<button type='button' class='btn btn-primary installer-continue'>Continue Installation</button>";
 		$has_errors = true;
 		return;
 	}else{
@@ -39,9 +37,8 @@ function fi_browser_installer($missing_perms, $db_file, $missing_tables, $post, 
 			if(empty($pdo)) throw new Exception("Couldn't create database file.");
 		}catch(Exception $e){
 			echo "<p>Milton CMS could not create the database file. From the command line, please run:</p>";
-			echo "<textarea id='code-textarea' readonly rows='2'>touch ".$db_file.";\n</textarea>";
-			echo "<button onclick='navigator.clipboard.writeText(document.getElementById(`code-textarea`).value).then(e=>{this.innerHTML=`Text copied!`;setTimeout(()=>this.innerHTML=`Copy to Clipboard`,2000)})'>Copy to Clipboard</button>";
-			echo "<button onclick='window.location = window.location.href;'>Continue Installation</button>";
+			echo fi_installer_codeblock("touch ".$db_file.";\n", 2);
+			echo "<button type='button' class='btn btn-primary installer-continue'>Continue Installation</button>";
 			$has_errors = true;
 			return;
 		}
@@ -53,19 +50,22 @@ function fi_browser_installer($missing_perms, $db_file, $missing_tables, $post, 
 			$sql = @file_get_contents(APP_ROOT."/database/sql/$table.sql");
 			if(false === $sql){
 				echo "<p>Can't scan the sql file ($table.sql). Ensure PHP has proper permissions to read it.</p>";
-				echo "<button onclick='window.location = window.location.href;'>Continue Installation</button>";
+				echo "<button type='button' class='btn btn-primary installer-continue'>Continue Installation</button>";
 				$has_errors = true;
 				return;
 			}
 
 			$sql_statements = explode(";\n", $sql);
 			foreach($sql_statements as $sql_statement){
+				// Skip blank fragments (e.g. a trailing newline after the final
+				// ';'); PDO::exec() throws a ValueError on an empty statement.
+				if(trim($sql_statement) === '') continue;
 				try{
 					$pdo->exec($sql_statement);
 					echo "<p>Created table <code>$table</code></p>";
 				}catch(PDOException $e){
 					echo "<p>($table.sql) Error: ".$e->getMessage()."</p>";
-					echo "<button onclick='window.location = window.location.href;'>Continue Installation</button>";
+					echo "<button type='button' class='btn btn-primary installer-continue'>Continue Installation</button>";
 					$has_errors = true;
 					return;
 				}
@@ -94,10 +94,12 @@ function fi_browser_installer($missing_perms, $db_file, $missing_tables, $post, 
 			if(empty($form_errors)){
 				$stmt = $pdo->prepare("INSERT INTO `users` (`username`, `password`, `display_name`) VALUES (?, ?, ?);");
 				$stmt->execute([
-					$post['username'], 
-					md5($post['password']), 
+					$post['username'],
+					User::hashPassword($post['password']),
 					$post['display_name']
 				]);
+				// The first user created during installation is granted admin.
+				User::addAdmin($pdo, $pdo->lastInsertId());
 				$missing_user = false;
 
 			}
@@ -110,12 +112,12 @@ function fi_browser_installer($missing_perms, $db_file, $missing_tables, $post, 
 		$has_errors = true;
 		echo "<p>There are no users for this install 🚫. Create one.</p>";
 		echo "<form method='POST'>";
-		if(!empty($form_errors)) echo '<ul><li>🚫 ' . implode('</li><li>🚫 ', $form_errors) . '</li></ul>';
-		echo "<label>Username:</label><input name='username' placeholder='Username' /><br>";
-		echo "<label>Display Name:</label><input name='display_name' placeholder='Display Name' /><br>";
-		echo "<label>Password:</label><input name='password' type='password' placeholder='Password' /><br>";
-		echo "<label>Confirm Password:</label><input name='confirm_password' type='password' placeholder='Confirm Password' /><br>";
-		echo "<button type='submit' name='create_user' value=1>Create User</button>";
+		if(!empty($form_errors)) echo '<div class="alert alert-danger"><ul class="mb-0"><li>🚫 ' . implode('</li><li>🚫 ', $form_errors) . '</li></ul></div>';
+		echo "<div class='mb-3'><label class='form-label'>Username:</label><input class='form-control' name='username' placeholder='Username' /></div>";
+		echo "<div class='mb-3'><label class='form-label'>Display Name:</label><input class='form-control' name='display_name' placeholder='Display Name' /></div>";
+		echo "<div class='mb-3'><label class='form-label'>Password:</label><input class='form-control' name='password' type='password' placeholder='Password' /></div>";
+		echo "<div class='mb-3'><label class='form-label'>Confirm Password:</label><input class='form-control' name='confirm_password' type='password' placeholder='Confirm Password' /></div>";
+		echo "<button class='btn btn-primary' type='submit' name='create_user' value=1>Create User</button>";
 		echo "</form>";
 		return;
 	}else{
@@ -126,17 +128,15 @@ function fi_browser_installer($missing_perms, $db_file, $missing_tables, $post, 
 	echo "<h4>Checking Configuration...</h4>";
 	if(!file_exists($app_config_file)){
 		echo "<p>App config file doesn't exit 🚫. From the command line, please run:</p>";
-		echo "<textarea id='code-textarea' readonly rows='2'>touch ".$app_config_file.";\n</textarea>";
-		echo "<button onclick='navigator.clipboard.writeText(document.getElementById(`code-textarea`).value).then(e=>{this.innerHTML=`Text copied!`;setTimeout(()=>this.innerHTML=`Copy to Clipboard`,2000)})'>Copy to Clipboard</button>";
-		echo "<button onclick='window.location = window.location.href;'>Continue Installation</button>";
+		echo fi_installer_codeblock("touch ".$app_config_file.";\n", 2);
+		echo "<button type='button' class='btn btn-primary installer-continue'>Continue Installation</button>";
 		$has_errors = true;
 		return;
 	}
 	if(!file_exists($server_config_file)){
 		echo "<p>Server config file doesn't exit 🚫. From the command line, please run:</p>";
-		echo "<textarea id='code-textarea' readonly rows='2'>touch ".$server_config_file.";\n</textarea>";
-		echo "<button onclick='navigator.clipboard.writeText(document.getElementById(`code-textarea`).value).then(e=>{this.innerHTML=`Text copied!`;setTimeout(()=>this.innerHTML=`Copy to Clipboard`,2000)})'>Copy to Clipboard</button>";
-		echo "<button onclick='window.location = window.location.href;'>Continue Installation</button>";
+		echo fi_installer_codeblock("touch ".$server_config_file.";\n", 2);
+		echo "<button type='button' class='btn btn-primary installer-continue'>Continue Installation</button>";
 		$has_errors = true;
 		return;
 	}
@@ -179,11 +179,11 @@ function fi_browser_installer($missing_perms, $db_file, $missing_tables, $post, 
 		$has_errors = true;
 		echo "<p>Blog is not configured 🚫.</p>";
 		echo "<form method='POST'>";
-		if(!empty($form_errors)) echo '<ul><li>🚫 ' . implode('</li><li>🚫 ', $form_errors) . '</li></ul>';
-		echo "<label>Blog Title:</label><input name='app_title' placeholder='App Title' /><br>";
-		echo "<label>Blog Description:</label><input name='app_description' placeholder='App Description' /><br>";
-		echo "<label>Blog OG Image URL:</label><input name='app_og_url' placeholder='App OG Image URL' /><br>";
-		echo "<button type='submit' name='create_app_config' value=1>Create App Config</button>";
+		if(!empty($form_errors)) echo '<div class="alert alert-danger"><ul class="mb-0"><li>🚫 ' . implode('</li><li>🚫 ', $form_errors) . '</li></ul></div>';
+		echo "<div class='mb-3'><label class='form-label'>Blog Title:</label><input class='form-control' name='app_title' placeholder='App Title' /></div>";
+		echo "<div class='mb-3'><label class='form-label'>Blog Description:</label><input class='form-control' name='app_description' placeholder='App Description' /></div>";
+		echo "<div class='mb-3'><label class='form-label'>Blog OG Image URL:</label><input class='form-control' name='app_og_url' placeholder='App OG Image URL' /></div>";
+		echo "<button class='btn btn-primary' type='submit' name='create_app_config' value=1>Create App Config</button>";
 		echo "</form>";
 		return;
 	}else{
@@ -228,10 +228,10 @@ function fi_browser_installer($missing_perms, $db_file, $missing_tables, $post, 
 		$has_errors = true;
 		echo "<p>Server is not configured 🚫.</p>";
 		echo "<form method='POST'>";
-		if(!empty($form_errors)) echo '<ul><li>🚫 ' . implode('</li><li>🚫 ', $form_errors) . '</li></ul>';
-		echo "<label>Base URL:</label><input name='base_url' placeholder='Base URL' value=\"".$_SERVER['REQUEST_URI']."\" /><br>";
-		echo "<label>Max Upload File Size:</label><input type='number' name='max_filesize' placeholder='Max Upload File Size' value=\"".fi_file_upload_max_size()."\" /><br>";
-		echo "<button type='submit' name='create_server_config' value=1>Create Server Config</button>";
+		if(!empty($form_errors)) echo '<div class="alert alert-danger"><ul class="mb-0"><li>🚫 ' . implode('</li><li>🚫 ', $form_errors) . '</li></ul></div>';
+		echo "<div class='mb-3'><label class='form-label'>Base URL:</label><input class='form-control' name='base_url' placeholder='Base URL' value=\"".$_SERVER['REQUEST_URI']."\" /></div>";
+		echo "<div class='mb-3'><label class='form-label'>Max Upload File Size:</label><input class='form-control' type='number' name='max_filesize' placeholder='Max Upload File Size' value=\"".fi_file_upload_max_size()."\" /></div>";
+		echo "<button class='btn btn-primary' type='submit' name='create_server_config' value=1>Create Server Config</button>";
 		echo "</form>";
 		return;
 	}else{
@@ -261,11 +261,11 @@ function fi_browser_installer($missing_perms, $db_file, $missing_tables, $post, 
 	if(!empty($missing_deps)){
 		echo "<p>Dependencies not found 🚫.</p>";
 		echo "<form method='POST'>";
-		if(!empty($form_errors)) echo '<ul><li>🚫 ' . implode('</li><li>🚫 ', $form_errors) . '</li></ul>';
+		if(!empty($form_errors)) echo '<div class="alert alert-danger"><ul class="mb-0"><li>🚫 ' . implode('</li><li>🚫 ', $form_errors) . '</li></ul></div>';
 		foreach($missing_deps as $dep){
-			echo "<label>Path to <code>$dep</code>:</label><input name='dep[$dep]' /><br>";
+			echo "<div class='mb-3'><label class='form-label'>Path to <code>$dep</code>:</label><input class='form-control' name='dep[$dep]' /></div>";
 		}
-		echo "<button type='submit' name='save_deps' value=1>Save Dependencies</button>";
+		echo "<button class='btn btn-primary' type='submit' name='save_deps' value=1>Save Dependencies</button>";
 		echo "</form>";
 		return;
 	}
@@ -296,12 +296,11 @@ function fi_browser_installer($missing_perms, $db_file, $missing_tables, $post, 
 
 		if($has_errors){
 			echo "<p>Unable to build, please run this manually in the command line:</p>";
-			echo "<textarea id='code-textarea' readonly rows='4'>cd ".APP_ROOT.";\nnpm run build;\n</textarea>";
-			echo "<button onclick='navigator.clipboard.writeText(document.getElementById(`code-textarea`).value).then(e=>{this.innerHTML=`Text copied!`;setTimeout(()=>this.innerHTML=`Copy to Clipboard`,2000)})'>Copy to Clipboard</button>";
-			echo "<button onclick='window.location = window.location.href;'>Continue Installation</button>";
+			echo fi_installer_codeblock("cd ".APP_ROOT.";\nnpm run build;\n", 4);
+			echo "<button type='button' class='btn btn-primary installer-continue'>Continue Installation</button>";
 			return;
 		}
 
-		echo "<button onclick='window.location = window.location.href;'>Continue</button>";
+		echo "<button type='button' class='btn btn-primary installer-continue'>Continue</button>";
 	}
 }

@@ -7,7 +7,61 @@ class ImageController extends ModelController{
 	}
 
 	public function get(){
-		
+		$user = $this->getUser();
+		if(empty($user)){
+			$this->response->setError("Not logged in", 401)->send();
+		}
+
+		// Newest first
+		$rows = $this->pdo->query("SELECT * FROM `images` ORDER BY `upload_ts` DESC")->fetchAll(PDO::FETCH_ASSOC);
+
+		// Cache uploader display names so we don't re-query per row
+		$uploaders = [];
+		$images = [];
+		foreach($rows as $row){
+			$uid = $row['uploader_id'];
+			if($uid !== null && !array_key_exists($uid, $uploaders)){
+				$u = User::fromID($this->pdo, $uid);
+				$uploaders[$uid] = $u === false ? null : $u->get('display_name');
+			}
+			$images[] = [
+				'id' => intval($row['id']),
+				'orig_name' => $row['orig_name'],
+				'sys_name' => $row['sys_name'],
+				'upload_ts' => intval($row['upload_ts']),
+				'uploader_id' => $uid === null ? null : intval($uid),
+				'uploader_name' => $uid === null ? null : ($uploaders[$uid] ?? null),
+				'path' => 'assets/images/'.$row['sys_name']
+			];
+		}
+
+		$this->response->setData(['images' => $images]);
+	}
+
+	public function delete(){
+		$user = $this->getUser();
+		if(empty($user)){
+			$this->response->setError("Not logged in", 401)->send();
+		}
+
+		if(empty($this->model_instance) || !$this->model_instance->isInDB()){
+			$this->response->setError("Image not found", 404)->send();
+		}
+
+		// Remove the file from disk, then the database record.
+		$sys_name = $this->model_instance->get('sys_name');
+		$file = APP_ROOT."/public/assets/images/".basename($sys_name);
+		if(!empty($sys_name) && file_exists($file)){
+			@unlink($file);
+		}
+
+		$columns = $this->model_instance->getColumns();
+		$success = $this->model_instance->delete();
+		if(empty($success)){
+			$this->response->setError("Unable to delete image record", 500)->send();
+		}
+
+		$this->response->setData(['Deleted' => $columns]);
 	}
 
 	public function post(){

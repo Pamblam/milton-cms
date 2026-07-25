@@ -51,7 +51,7 @@ export class APIRequest {
 
 	async send() {
 
-		if(this.session && this.session.isExpired() && this.path !== 'Session/updateToken'){
+		if(this.session && this.session.get('token') && this.path !== 'Session/updateToken' && this.session.isExpired()){
 			await this.session.updateToken();
 		}
 
@@ -90,7 +90,12 @@ export class APIRequest {
 		
 		if(this.session){
 			let token_header = response.headers.get('x-auth-token');
-			if (token_header) this.session.set('token', token_header);
+			if (token_header) {
+				this.session.set('token', token_header);
+				// Stamp when this token was issued so isExpired() can measure
+				// the token's own age (only login/updateToken send this header).
+				this.session.set('token_issued', new Date().getTime());
+			}
 		}
 		
 		return await response.json();

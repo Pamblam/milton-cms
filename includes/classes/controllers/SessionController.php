@@ -66,10 +66,28 @@ class SessionController extends ModelController{
 	public function post(){
 		$user = $this->getUser();
 		if($user === false){
+			$ip = Session::getIP();
+
+			// Refuse further attempts once this IP has failed too many times
+			// within the throttle window (brute-force / credential-stuffing).
+			if(LoginThrottle::tooManyAttempts($this->pdo, $ip)){
+				$retry = LoginThrottle::retryAfter($this->pdo, $ip);
+				$this->response->setHeader("Retry-After: $retry");
+				$this->response->setError("Too many login attempts. Try again in ".ceil($retry / 60)." minute(s).", 429)->send();
+			}
+
 			if(empty($_POST['username'])) $this->response->setError("Missing parameter: username", 400)->send();
 			if(empty($_POST['password'])) $this->response->setError("Missing parameter: password", 400)->send();
 			$user = User::fromColumn($this->pdo, 'username', $_POST['username']);
-			if(!$user || $user->get('password') !== md5($_POST['password'])) $this->response->setError("Invalid login", 400)->send();
+			if(!$user || !$user->verifyPassword($_POST['password'])){
+				// Record the failure against this IP before rejecting.
+				LoginThrottle::record($this->pdo, $ip, $_POST['username']);
+				$this->response->setError("Invalid login", 400)->send();
+			}
+
+			// Successful login — clear this IP's failure history.
+			LoginThrottle::clear($this->pdo, $ip);
+
 			// do something to create a new session here...
 			$new_token = Session::generateToken();
 			$this->model_instance->set('ip', Session::getIP());

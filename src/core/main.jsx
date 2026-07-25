@@ -19,6 +19,8 @@ import {Search} from '#views/Search';
 import {NotFound} from '#views/NotFound';
 import {Post} from '#views/Post';
 import {Settings} from '#views/Settings';
+import {Users} from '#views/Users';
+import {Media} from '#views/Media';
 import {AnalyticsListener} from '#components/AnalyticsListener';
 
 (async function main(){
@@ -41,6 +43,8 @@ import {AnalyticsListener} from '#components/AnalyticsListener';
 						<Route path="/edit_post/:slugOrId" element={<EditPost />} />
 						<Route path="/search/:query" element={<Search />} />
 						<Route path="/settings" element={<Settings />} />
+						<Route path="/users" element={<Users />} />
+						<Route path="/media" element={<Media />} />
 						<Route path="*" element={<NotFound />}  />
 					</Route>
 				</Routes>

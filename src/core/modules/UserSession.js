@@ -14,19 +14,31 @@ class UserSession{
 		// Set Session properties
 		this.props = [
 			'id',
-			'last_checked', 
+			'last_checked',
 			'username',
 			'display_name',
-			'token'
+			'token',
+			'token_issued'
 		];
 
 		this.validateServerPromise = null;
+
+		// Holds an in-flight token refresh so concurrent requests share one
+		// rotation instead of each racing to burn the same single-use token.
+		this.updateTokenPromise = null;
 	}
 
-	async isExpired(){
-		// token is valid for only six hours
+	// Whether the current token should be proactively refreshed. The server
+	// session is valid for 6 hours from when the token was issued; we refresh
+	// after 5 to leave a margin, so during normal use the token stays stable
+	// and concurrent requests never carry an already-rotated (deleted) token.
+	// NOTE: intentionally synchronous — it is used directly in a boolean test.
+	isExpired(){
+		if(!this.get('token')) return true;
+		let issued = this.get('token_issued');
+		if(!issued) return true;
 		let now = new Date().getTime();
-		return !this.get('last_checked') || this.get('last_checked') >= now - (1000 * 60 * 60 * 6);
+		return issued <= now - (1000 * 60 * 60 * 5);
 	}
 
 	async logout(){
@@ -37,15 +49,24 @@ class UserSession{
 	}
 
 	async updateToken(){
-		let res = await new APIRequest('Session/updateToken', this).patch();
-		if(!res.has_error && res.data.User && res.data.User.id){
-			this.set('display_name', res.data.User.display_name);
-			this.set('username', res.data.User.username);
-			this.set('id', res.data.User.id);
-			//this.set('last_checked', now);
-			return true;
+		// Serialize refreshes: if one is already in flight, everyone waits on
+		// it rather than firing their own rotation and racing over the token.
+		if(this.updateTokenPromise) return this.updateTokenPromise;
+		this.updateTokenPromise = (async ()=>{
+			let res = await new APIRequest('Session/updateToken', this).patch();
+			if(!res.has_error && res.data.User && res.data.User.id){
+				this.set('display_name', res.data.User.display_name);
+				this.set('username', res.data.User.username);
+				this.set('id', res.data.User.id);
+				return true;
+			}
+			return false;
+		})();
+		try {
+			return await this.updateTokenPromise;
+		} finally {
+			this.updateTokenPromise = null;
 		}
-		return false;
 	}
 
 	// Log in to start a session
@@ -112,7 +133,7 @@ class UserSession{
 	get(prop){
 		let val = localStorage.getItem(`session.${prop}`);
 		if(!val) return;
-		return ['id', 'last_checked'].includes(prop) ? +val : val;
+		return ['id', 'last_checked', 'token_issued'].includes(prop) ? +val : val;
 	}
 }
 

@@ -30,7 +30,9 @@ For detailed setup instructions, refer to the [Installation Guide](docs/Installa
 
 ## Managing Content
 
-From the browser, navigate to the `/admin` directory of your app (or click the **Admin** link at the bottom of the default theme) and log in with the user and password you created during setup. You can create, preview, edit, delete, publish and unpublish all your posts here. For a more in-depth look at content management, have a look at the [Content Management Guide](docs/ContentManagement.md).
+From the browser, navigate to the `/admin` directory of your app (or click the **Admin** link at the bottom of the default theme) and log in with the user and password you created during setup. You can create, preview, edit, delete, publish and unpublish all your posts here. You can also manage your uploaded images from the **Media** page and manage user accounts from the **Edit Users** page. For a more in-depth look at content management, have a look at the [Content Management Guide](docs/ContentManagement.md).
+
+Milton has a simple two-tier permission model: **administrators** can see and edit every user's account, while everyone else can only manage their own. The first user created at install time is an administrator.
 
 ## Themeing and Customizing
 
@@ -50,7 +52,7 @@ Milton CMS includes CLI scripts for administrative tasks. Here's a quick rundown
 
  - `npm run build`: Installs and transpiles your theme code, building the app.
  - `npm run create_user`: If you want to have multiple users creating content, you can add another one with this script.
- - `npm run edit_user <username or id>`: Conveinience script to edit a user based on their ID or username.
+ - `npm run edit_user <username or id>`: Conveinience script to edit a user based on their ID or username, including granting or revoking administrator privileges.
  - `npm run update <path to new version>`: Update your CMS instance to a new version.
  
 ## License

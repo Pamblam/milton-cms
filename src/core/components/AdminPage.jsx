@@ -5,7 +5,7 @@
  */
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCaretRight, faGear, faFileCirclePlus, faFileLines } from '@fortawesome/free-solid-svg-icons';
+import { faCaretRight, faGear, faFileCirclePlus, faFileLines, faUsers, faImages } from '@fortawesome/free-solid-svg-icons';
 
 import {useNavHelper} from '#hooks/useNavHelper';
 import { Breadcrumbs } from '#components/Breadcrumbs';
@@ -18,6 +18,8 @@ export function AdminPage({children, crumbs}){
 	let adminLinks = [
 		{title: "All Posts", path: "/admin",  icon:faFileLines},
 		{title: "New Post", path: "/new_post", icon:faFileCirclePlus},
+		{title: "Media", path: "/media", icon:faImages},
+		{title: "Edit Users", path: "/users", icon:faUsers},
 		{title: "Settings", path: "/settings", icon:faGear}
 	];
 

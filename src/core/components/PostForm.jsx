@@ -32,41 +32,16 @@ export function PostForm({slugOrId}){
 	const post_id_ref = useRef();
 	const submitting_ref = useRef(false);
 
-	// the last position of the cursor in the textarea.
-	const cursorPosition = useRef(-1);
-	const trackCursorPosition = e=>{
-		if(!textarea_ref.current) cursorPosition.current = -1;
-		cursorPosition.current = textarea_ref.current.selectionStart;
+	// Track the textarea's caret / selection so an inserted image lands where
+	// the user last had their cursor — even after focus moves to the Insert
+	// Image button (a textarea keeps its selection after blur). Updated on
+	// every interaction that can move the caret: clicks, key-ups and selects.
+	const selection = useRef({start: null, end: null});
+	const updateSelection = () => {
+		const ta = textarea_ref.current;
+		if(!ta) return;
+		selection.current = {start: ta.selectionStart, end: ta.selectionEnd};
 	};
-
-	// To track the currently focused element
-	// Mainly needed when clicking on the the add image button 
-	// to determine if the previously focused element was the textarea 
-	const currentFocus = useRef([]);
-	const focusedElement = {
-		set(ele){
-			if(this.current() === ele) return;
-			currentFocus.current.unshift(ele);
-			if(currentFocus.current.length > 2){
-				currentFocus.current.pop();
-			}
-		},
-		current(){
-			if(!currentFocus.current.length) return false;
-			return currentFocus.current[0];
-		},
-		previous(){
-			if(currentFocus.current.length < 2) return false;
-			return currentFocus.current[1];
-		}
-	};
-
-	// Track the currently focused element
-	useEffect(()=>{
-		let fn = e=>focusedElement.set(e.target);
-		addEventListener('focusin', fn);
-		return ()=>removeEventListener('focusin', fn);
-	}, []);
 
 	useEffect(()=>{
 		if(Object.keys(postData).length){
@@ -236,22 +211,35 @@ export function PostForm({slugOrId}){
 
 			let img_md = `![](${encodeURI(res.data.path)})`;
 
-			let md_text = textarea_ref.current.value;
+			const ta = textarea_ref.current;
+			let md_text = ta.value;
+			const sel = selection.current;
+			let caret;
 
-			// put the markdwn at the current position, if the textarea was previously in focus.
-			if(focusedElement.previous() === textarea_ref.current && cursorPosition.current !== -1){
-				let chars = md_text.split('');
-				chars.splice(cursorPosition.current-1, 0, img_md);
-				md_text = chars.join('');
+			// If the user has placed their cursor in the textarea, insert there
+			// (replacing any selected text); otherwise append the image on its
+			// own line at the end.
+			if(sel.start !== null){
+				const start = Math.min(sel.start, md_text.length);
+				const end = Math.min(sel.end, md_text.length);
+				md_text = md_text.slice(0, start) + img_md + md_text.slice(end);
+				caret = start + img_md.length;
 			}else{
 				let lines = md_text.split("\n");
 				if(!lines.at(-1).trim()) lines[lines.length-1] = img_md;
 				else lines.push(img_md);
 				md_text = lines.join("\n");
+				caret = md_text.length;
 			}
 
-			textarea_ref.current.value = md_text;
-			autoExpandTextarea.call(textarea_ref.current);
+			ta.value = md_text;
+			autoExpandTextarea.call(ta);
+
+			// Restore focus and drop the caret right after the inserted markdown
+			// so the tracked selection stays valid for a subsequent insert.
+			ta.focus();
+			ta.setSelectionRange(caret, caret);
+			selection.current = {start: caret, end: caret};
 
 			new_post_preview_ref.current.innerHTML = '<p>Loading...</p>';
 			res = await new APIRequest('ParseMD').get({md: md_text});
@@ -327,7 +315,7 @@ export function PostForm({slugOrId}){
 			</div>
 			<div className="tab-content mb-3">
 				<div className="tab-pane container active px-0 pt-3" id="new_post_compose">
-					<textarea data-lpignore="true" ref={set_textarea_ref} className="form-control" onKeyDown={trackCursorPosition} onClick={trackCursorPosition}></textarea>
+					<textarea data-lpignore="true" ref={set_textarea_ref} className="form-control" onKeyUp={updateSelection} onClick={updateSelection} onSelect={updateSelection}></textarea>
 					<div className="form-text">Compose your post using Markdown.</div>
 				</div>
 				<div className="tab-pane container fade px-0 pt-3" id="new_post_preview" ref={set_new_post_preview_ref}>

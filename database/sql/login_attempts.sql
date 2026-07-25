@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS `login_attempts` (
+  `id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  `ip` TEXT NOT NULL,
+  `username` TEXT,
+  `attempt_time` INTEGER NOT NULL
+);
